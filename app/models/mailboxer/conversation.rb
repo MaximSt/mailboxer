@@ -18,19 +18,23 @@ class Mailboxer::Conversation < ActiveRecord::Base
     joins(:receipts).merge(Mailboxer::Receipt.recipient(participant)).uniq
   }
   scope :inbox, lambda {|participant|
-    participant(participant).merge(Mailboxer::Receipt.inbox.not_trash.not_deleted)
+    participant(participant).merge(Mailboxer::Receipt.inbox.not_trash.not_deleted.not_drafts)
   }
   scope :sentbox, lambda {|participant|
-    participant(participant).merge(Mailboxer::Receipt.sentbox.not_trash.not_deleted)
+    participant(participant).merge(Mailboxer::Receipt.sentbox.not_trash.not_deleted.not_drafts)
   }
   scope :trash, lambda {|participant|
-    participant(participant).merge(Mailboxer::Receipt.trash)
+    participant(participant).merge(Mailboxer::Receipt.trash.not_drafts)
   }
   scope :unread,  lambda {|participant|
     participant(participant).merge(Mailboxer::Receipt.is_unread)
   }
   scope :not_trash,  lambda {|participant|
     participant(participant).merge(Mailboxer::Receipt.not_trash)
+  }
+  scope :drafts,  lambda {|sender|
+    where(:mailboxer_notifications => {:sender_id => sender.id, :sender_type => sender.class.base_class.to_s})
+      .joins(:receipts).merge(Mailboxer::Receipt.drafts)
   }
 
   #Mark the conversation as read for one of the participants

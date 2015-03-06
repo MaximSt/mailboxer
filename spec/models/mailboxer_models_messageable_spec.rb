@@ -325,4 +325,60 @@ describe "Mailboxer::Models::Messageable through User" do
     expect(receipt.message.conversation.updated_at.utc.to_s).to eq expected
   end
 
+  describe '#save_as_draft' do
+    let(:draft_body) { 'Draft body' }
+    let(:draft_subject) { 'Draft subject' }
+
+    it 'creates draft message' do
+      receipt = @entity1.save_as_draft(@entity2, draft_body, draft_subject)
+      conversation = receipt.conversation
+      expect(conversation.last_message.body).to eq draft_body
+      expect(@entity1.mailbox.inbox).not_to include conversation
+      expect(@entity1.mailbox.sentbox).not_to include conversation
+      expect(@entity1.mailbox.drafts).to include conversation
+    end
+
+    it 'does not send draft message to recipients' do
+      receipt = @entity1.save_as_draft(@entity2, draft_body, draft_subject)
+      conversation = receipt.conversation
+      expect(@entity2.mailbox.inbox).not_to include conversation
+      expect(@entity2.mailbox.sentbox).not_to include conversation
+      expect(@entity2.mailbox.drafts).not_to include conversation
+    end
+  end
+
+  describe '#save_reply_as_draft' do
+    let(:receipt) { @entity1.send_message(@entity2,"Body","Subject") }
+    let(:message) { receipt.notification }
+    let(:conversation) { message.conversation }
+    let(:draft_body) { 'Draft body' }
+    let(:draft_subject) { 'Draft subject' }
+
+    it 'creates draft message' do
+      receipt = @entity1.save_reply_as_draft(conversation, draft_body, draft_subject)
+      conversation = receipt.conversation
+      expect(conversation.last_message.body).to eq draft_body
+      expect(@entity1.mailbox.inbox).not_to include conversation
+      expect(@entity1.mailbox.drafts).to include conversation
+    end
+
+    it 'does not send draft message to recipients' do
+      receipt = @entity1.save_as_draft(conversation, draft_body, draft_subject)
+      conversation = receipt.conversation
+      expect(@entity2.mailbox.inbox).not_to include conversation
+      expect(@entity2.mailbox.sentbox).not_to include conversation
+      expect(@entity2.mailbox.drafts).not_to include conversation
+    end
+  end
+
+  describe '#reply_to_conversation' do
+    it 'sends draft reply' do
+      receipt = @entity1.save_as_draft(@entity2, 'Body', 'Subject')
+      conversation = receipt.conversation
+
+      @entity2.reply_to_conversation(conversation, 'Reply body')
+
+      expect(@entity1.mailbox.inbox).to include conversation
+    end
+  end
 end

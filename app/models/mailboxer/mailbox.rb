@@ -63,6 +63,11 @@ class Mailboxer::Mailbox
     conversations(options)
   end
 
+  #Returns the drafts conversations
+  def drafts(options={})
+    conversations(options).drafts(messageable)
+  end
+
   #Returns all the receipts of messageable, from Messages and Notifications
   def receipts(options = {})
     Mailboxer::Receipt.where(options).recipient(messageable)

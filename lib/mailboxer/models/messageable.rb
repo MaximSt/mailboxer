@@ -85,16 +85,22 @@ module Mailboxer
 
       #Basic reply method. USE NOT RECOMENDED.
       #Use reply_to_sender, reply_to_all and reply_to_conversation instead.
-      def reply(conversation, recipients, reply_body, subject=nil, sanitize_text=true, attachment=nil)
+      def reply(conversation, recipients, reply_body = nil, subject=nil, sanitize_text=true, attachment=nil)
         subject = subject || "#{conversation.subject}"
-        response = Mailboxer::MessageBuilder.new({
-          :sender       => self,
-          :conversation => conversation,
-          :recipients   => recipients,
-          :body         => reply_body,
-          :subject      => subject,
-          :attachment   => attachment
-        }).build
+        draft_message = Mailboxer::Message.conversation(conversation).drafts.first
+        if draft_message
+          response = draft_message
+          response.draft = false
+        else
+          response = Mailboxer::MessageBuilder.new({
+           :sender       => self,
+           :conversation => conversation,
+           :recipients   => recipients,
+           :body         => reply_body,
+           :subject      => subject,
+           :attachment   => attachment
+         }).build
+        end
 
         response.recipients.delete(self)
         response.deliver true, sanitize_text
@@ -112,7 +118,7 @@ module Mailboxer
 
       #Replies to all the recipients of the last message in the conversation and untrash any trashed message by messageable
       #if should_untrash is set to true (this is so by default)
-      def reply_to_conversation(conversation, reply_body, subject=nil, should_untrash=true, sanitize_text=true, attachment=nil)
+      def reply_to_conversation(conversation, reply_body = nil, subject=nil, should_untrash=true, sanitize_text=true, attachment=nil)
         #move conversation to inbox if it is currently in the trash and should_untrash parameter is true.
         if should_untrash && mailbox.is_trashed?(conversation)
           mailbox.receipts_for(conversation).untrash
@@ -227,6 +233,47 @@ module Mailboxer
         when Array
           obj.map{ |sub_obj| untrash(sub_obj) }
         end
+      end
+
+      #Saves the object as draft for messageable.
+      def save_as_draft(recipients = [], msg_body = '', subject = nil, sanitize_text = true, attachment = nil, message_timestamp = Time.now)
+        conversation = Mailboxer::ConversationBuilder.new({
+                                                     :subject    => subject,
+                                                     :created_at => message_timestamp,
+                                                     :updated_at => message_timestamp
+                                                   }).build
+
+        message = Mailboxer::MessageBuilder.new({
+                                                  :sender       => self,
+                                                  :conversation => conversation,
+                                                  :recipients   => recipients,
+                                                  :body         => msg_body,
+                                                  :subject      => subject,
+                                                  :attachment   => attachment,
+                                                  :created_at   => message_timestamp,
+                                                  :updated_at   => message_timestamp,
+                                                  :draft        => true
+
+                                                }).build
+
+        message.save_as_draft sanitize_text
+      end
+
+      #Saves the reply as draft.
+      def save_reply_as_draft(conversation, reply_body, subject=nil, sanitize_text=true, attachment=nil)
+        subject = subject || "#{conversation.subject}"
+        response = Mailboxer::MessageBuilder.new({
+                                                   :sender       => self,
+                                                   :conversation => conversation,
+                                                   :recipients   => conversation.last_message.recipients,
+                                                   :body         => reply_body,
+                                                   :subject      => subject,
+                                                   :attachment   => attachment,
+                                                   :draft        => true
+                                                 }).build
+
+        response.recipients.delete(self)
+        response.save_as_draft sanitize_text
       end
 
       def search_messages(query)

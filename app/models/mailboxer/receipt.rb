@@ -2,7 +2,7 @@ class Mailboxer::Receipt < ActiveRecord::Base
   self.table_name = :mailboxer_receipts
   attr_accessible :trashed, :is_read, :deleted if Mailboxer.protected_attributes?
 
-  belongs_to :notification, :class_name => "Mailboxer::Notification", :validate => true, :autosave => true
+  belongs_to :notification, :class_name => "Mailboxer::Notification"#, :validate => true, :autosave => true
   belongs_to :receiver, :polymorphic => :true
   belongs_to :message, :class_name => "Mailboxer::Message", :foreign_key => "notification_id"
 
@@ -29,6 +29,8 @@ class Mailboxer::Receipt < ActiveRecord::Base
   scope :not_deleted, lambda { where(:deleted => false) }
   scope :is_read, lambda { where(:is_read => true) }
   scope :is_unread, lambda { where(:is_read => false) }
+  scope :drafts, lambda { joins(:message).where(:mailboxer_notifications => {:draft => true}) }
+  scope :not_drafts, lambda { joins(:message).where(:mailboxer_notifications => {:draft => false}) }
 
   after_validation :remove_duplicate_errors
   class << self

@@ -10,6 +10,7 @@ class Mailboxer::Message < Mailboxer::Notification
   scope :conversation, lambda { |conversation|
     where(:conversation_id => conversation.id)
   }
+  scope :drafts, lambda { where(:draft => true) }
 
   mount_uploader :attachment, AttachmentUploader
 
@@ -33,7 +34,7 @@ class Mailboxer::Message < Mailboxer::Notification
 
     temp_receipts << sender_receipt
 
-    if temp_receipts.all?(&:valid?)
+    if temp_receipts.all?(&:valid?) && self.save
       temp_receipts.each(&:save!)
       Mailboxer::MailDispatcher.new(self, recipients).call
 
@@ -43,6 +44,20 @@ class Mailboxer::Message < Mailboxer::Notification
 
       on_deliver_callback.call(self) if on_deliver_callback
     end
+    sender_receipt
+  end
+
+  #Saves a Message as draft
+  def save_as_draft(should_clean = true)
+    self.clean if should_clean
+
+    temp_receipts = recipients.map { |r| build_receipt(r, 'inbox') }
+
+    sender_receipt = build_receipt(sender, 'sentbox', true)
+
+    temp_receipts << sender_receipt
+
+    temp_receipts.each(&:save!) if temp_receipts.all?(&:valid?) && self.save(:validate => false)
     sender_receipt
   end
 end
