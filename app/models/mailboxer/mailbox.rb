@@ -63,6 +63,14 @@ class Mailboxer::Mailbox
     conversations(options)
   end
 
+  #Returns the conversations in the spam of messageable
+  #
+  #Same as conversations({:mailbox_type => 'spam'})
+  def spam(options={})
+    options = options.merge(:mailbox_type => 'spam')
+    conversations(options)
+  end
+
   #Returns all the receipts of messageable, from Messages and Notifications
   def receipts(options = {})
     Mailboxer::Receipt.where(options).recipient(messageable)
@@ -83,6 +91,11 @@ class Mailboxer::Mailbox
   #Returns true if messageable has at least one trashed message of the conversation
   def is_trashed?(conversation)
     conversation.is_trashed?(messageable)
+  end
+
+  #Returns true if messageable has at least one message of the conversation in spam
+  def spam?(conversation)
+    conversation.spam?(messageable)
   end
 
   #Returns true if messageable has trashed all the messages of the conversation
@@ -119,6 +132,8 @@ class Mailboxer::Mailbox
       Mailboxer::Conversation.trash(messageable)
     when  'not_trash'
       Mailboxer::Conversation.not_trash(messageable)
+    when  'spam'
+      Mailboxer::Conversation.spam(messageable)
     else
       Mailboxer::Conversation.participant(messageable)
     end

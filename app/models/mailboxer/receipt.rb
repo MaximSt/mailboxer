@@ -29,6 +29,8 @@ class Mailboxer::Receipt < ActiveRecord::Base
   scope :not_deleted, lambda { where(:deleted => false) }
   scope :is_read, lambda { where(:is_read => true) }
   scope :is_unread, lambda { where(:is_read => false) }
+  scope :spam, lambda { where(:spam => true) }
+  scope :not_spam, lambda { where(:spam => false) }
 
   after_validation :remove_duplicate_errors
   class << self
@@ -50,6 +52,16 @@ class Mailboxer::Receipt < ActiveRecord::Base
     #Marks all the receipts from the relation as not trashed
     def untrash(options={})
       update_receipts({:trashed => false}, options)
+    end
+
+    #Marks all the receipts from the relation as spam
+    def move_to_spam(options={})
+      update_receipts({:spam => true}, options)
+    end
+
+    #Marks all the receipts from the relation as not spam
+    def remove_from_spam(options={})
+      update_receipts({:spam => false}, options)
     end
 
     #Marks the receipt as deleted
@@ -136,6 +148,11 @@ class Mailboxer::Receipt < ActiveRecord::Base
   #Returns if the participant have trashed the Notification
   def is_trashed?
     trashed
+  end
+
+  #Returns if the participant have the Notification in spam
+  def spam?
+    spam
   end
 
   protected

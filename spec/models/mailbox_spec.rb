@@ -74,6 +74,20 @@ describe Mailboxer::Mailbox do
     expect(@entity1.mailbox.inbox({:read => false}).count).to eq 0
   end
 
+  it "should return spammed mails" do
+    @entity1.mailbox.receipts.move_to_spam
+
+    assert @entity1.mailbox.receipts.spam
+    expect(@entity1.mailbox.receipts.spam.count).to eq 4
+    expect(@entity1.mailbox.receipts.spam[0]).to eq Mailboxer::Receipt.recipient(@entity1).conversation(@conversation)[0]
+    expect(@entity1.mailbox.receipts.spam[1]).to eq Mailboxer::Receipt.recipient(@entity1).conversation(@conversation)[1]
+    expect(@entity1.mailbox.receipts.spam[2]).to eq Mailboxer::Receipt.recipient(@entity1).conversation(@conversation)[2]
+    expect(@entity1.mailbox.receipts.spam[3]).to eq Mailboxer::Receipt.recipient(@entity1).conversation(@conversation)[3]
+
+    assert @entity2.mailbox.receipts.spam
+    expect(@entity2.mailbox.receipts.spam.count).to eq 0
+  end
+
   it "should return trashed mails" do
     @entity1.mailbox.receipts.move_to_trash
 

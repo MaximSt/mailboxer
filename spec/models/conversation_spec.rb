@@ -118,6 +118,15 @@ describe Mailboxer::Conversation do
         expect(Mailboxer::Conversation.unread(participant)).to eq [unread_conversation]
       end
     end
+
+    describe '#spam' do
+      it 'finds spammed conversations with receipts for participant' do
+        spammed_conversation = entity1.send_message(participant, 'Body', 'Subject').notification.conversation
+        spammed_conversation.move_to_spam(participant)
+
+        expect(Mailboxer::Conversation.spam(participant)).to eq [spammed_conversation]
+      end
+    end
   end
 
   describe "#is_completely_trashed?" do
