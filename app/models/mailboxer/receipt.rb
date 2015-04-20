@@ -85,15 +85,9 @@ class Mailboxer::Receipt < ActiveRecord::Base
     end
 
     def update_receipts(updates, options={})
-      ids = where(options).map { |rcp| rcp.id }
-      unless ids.empty?
-        sql = ids.map { "#{table_name}.id = ? " }.join(' OR ')
-        conditions = [sql].concat(ids)
-        Mailboxer::Receipt.where(conditions).update_all(updates)
-      end
+      where(options).update_all(updates)
     end
   end
-
 
   #Marks the receipt as deleted
   def mark_as_deleted
