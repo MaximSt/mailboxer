@@ -124,6 +124,12 @@ class Mailboxer::Notification < ActiveRecord::Base
     receipt_for(participant).first.trashed
   end
 
+  #Returns if the participant have the Notification in spam
+  def spam?(participant)
+    return false if participant.nil?
+    receipt_for(participant).first.spam?
+  end
+
   #Returns if the participant have deleted the Notification
   def is_deleted?(participant)
     return false if participant.nil?

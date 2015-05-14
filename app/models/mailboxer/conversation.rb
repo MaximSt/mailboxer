@@ -6,6 +6,7 @@ class Mailboxer::Conversation < ActiveRecord::Base
   has_many :opt_outs, :dependent => :destroy, :class_name => "Mailboxer::Conversation::OptOut"
   has_many :messages, :dependent => :destroy, :class_name => "Mailboxer::Message"
   has_many :receipts, :through => :messages,  :class_name => "Mailboxer::Receipt"
+  has_many :spammers,  :class_name => 'Mailboxer::Spammer'
 
   validates :subject, :presence => true,
                       :length => { :maximum => Mailboxer.subject_max_length }
@@ -18,19 +19,26 @@ class Mailboxer::Conversation < ActiveRecord::Base
     joins(:receipts).merge(Mailboxer::Receipt.recipient(participant)).uniq
   }
   scope :inbox, lambda {|participant|
-    participant(participant).merge(Mailboxer::Receipt.inbox.not_trash.not_deleted)
+    participant(participant).merge(Mailboxer::Receipt.inbox.not_trash.not_deleted).not_spam(participant)
   }
   scope :sentbox, lambda {|participant|
-    participant(participant).merge(Mailboxer::Receipt.sentbox.not_trash.not_deleted)
+    participant(participant).merge(Mailboxer::Receipt.sentbox.not_trash.not_deleted).not_spam(participant)
   }
   scope :trash, lambda {|participant|
-    participant(participant).merge(Mailboxer::Receipt.trash)
+    participant(participant).merge(Mailboxer::Receipt.trash).not_spam(participant)
   }
   scope :unread,  lambda {|participant|
-    participant(participant).merge(Mailboxer::Receipt.is_unread)
+    participant(participant).merge(Mailboxer::Receipt.is_unread).not_spam(participant)
   }
   scope :not_trash,  lambda {|participant|
-    participant(participant).merge(Mailboxer::Receipt.not_trash)
+    participant(participant).merge(Mailboxer::Receipt.not_trash).not_spam(participant)
+  }
+  scope :spam, lambda {|participant|
+    joins(:spammers).merge(Mailboxer::Spammer.recipient(participant))
+  }
+  scope :not_spam, lambda {|participant|
+    joins("LEFT JOIN mailboxer_spammers on mailboxer_spammers.conversation_id = mailboxer_conversations.id AND mailboxer_spammers.receiver_id = #{participant.id} AND mailboxer_spammers.receiver_type = '#{participant.class.base_class.to_s}'").
+      where('mailboxer_spammers.id IS NULL')
   }
 
   #Mark the conversation as read for one of the participants
@@ -55,6 +63,18 @@ class Mailboxer::Conversation < ActiveRecord::Base
   def untrash(participant)
     return unless participant
     receipts_for(participant).untrash
+  end
+
+  #Move the conversation to the spam for one of the participants
+  def move_to_spam(participant)
+    return unless participant
+    receipts_for(participant).move_to_spam
+  end
+
+  #Takes the conversation out of the spam for one of the participants
+  def remove_from_spam(participant)
+    return unless participant
+    receipts_for(participant).remove_from_spam
   end
 
   #Mark the conversation as deleted for one of the participants
@@ -126,6 +146,12 @@ class Mailboxer::Conversation < ActiveRecord::Base
       }).build.save
 		end
 	end
+
+  #Returns true if the participant has at least one message of the conversation in spam
+  def spam?(participant)
+    return false unless participant
+    receipts_for(participant).spam.exists?
+  end
 
   #Returns true if the participant has at least one trashed message of the conversation
   def is_trashed?(participant)
