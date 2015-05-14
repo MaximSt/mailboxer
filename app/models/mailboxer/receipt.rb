@@ -33,6 +33,7 @@ class Mailboxer::Receipt < ActiveRecord::Base
   scope :not_spam, lambda { where(:spam => false) }
 
   after_validation :remove_duplicate_errors
+
   class << self
     #Marks all the receipts from the relation as read
     def mark_as_read(options={})
@@ -56,12 +57,18 @@ class Mailboxer::Receipt < ActiveRecord::Base
 
     #Marks all the receipts from the relation as spam
     def move_to_spam(options={})
+      item = self.first
       update_receipts({:spam => true}, options)
+      spammer = item.message.conversation.spammers.new :receiver => item.receiver
+      spammer.save :validate => false
     end
 
     #Marks all the receipts from the relation as not spam
     def remove_from_spam(options={})
+      item = self.first
       update_receipts({:spam => false}, options)
+      spammer = item.message.conversation.spammers.where(:receiver_id => item.receiver_id, :receiver_type => item.receiver_type).first
+      spammer.destroy if spammer
     end
 
     #Marks the receipt as deleted
@@ -87,6 +94,18 @@ class Mailboxer::Receipt < ActiveRecord::Base
     def update_receipts(updates, options={})
       where(options).update_all(updates)
     end
+  end
+
+  def move_to_spam
+    update_attributes(:spam => true)
+    spammer = self.message.conversation.spammers.new :receiver => self.receiver
+    spammer.save :validate => false
+  end
+
+  def remove_from_spam
+    update_attributes(:spam => false)
+    spammer = self.message.conversation.spammers.first
+    spammer.destroy if spammer
   end
 
   #Marks the receipt as deleted
