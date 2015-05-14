@@ -4,6 +4,7 @@ class CreateMailboxerSpammers < ActiveRecord::Migration
       t.references :receiver, :polymorphic => true
       t.references :spammer, :polymorphic => true
       t.references :conversation
+      t.timestamps
     end
     add_index :mailboxer_spammers, [:receiver_id, :receiver_type]
     add_index :mailboxer_spammers, [:spammer_id, :spammer_type]
